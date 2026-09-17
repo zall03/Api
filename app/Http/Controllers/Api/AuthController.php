@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Mail\OtpMail;
 use App\Models\User;
+use App\Services\FirebaseTokenVerifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -154,6 +156,53 @@ class AuthController extends Controller
     {
         $request->user()->currentAccessToken()->delete();
         return response()->json(['success' => true, 'message' => 'Logout berhasil']);
+    }
+
+    public function googleLogin(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id_token' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        $payload = app(FirebaseTokenVerifier::class)->verify($request->id_token);
+
+        if (!$payload) {
+            return response()->json(['success' => false, 'message' => 'Token Google tidak valid'], 401);
+        }
+
+        $email = $payload['email'] ?? null;
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return response()->json(['success' => false, 'message' => 'Akun Google tidak memiliki email'], 422);
+        }
+
+        if (($payload['email_verified'] ?? false) !== true) {
+            return response()->json(['success' => false, 'message' => 'Email Google belum terverifikasi'], 403);
+        }
+
+        $name = $payload['name'] ?? strstr($email, '@', true);
+
+        $user = User::where('email', $email)->first();
+
+        if (!$user) {
+            $user = User::create([
+                'name' => $name,
+                'email' => $email,
+                'password' => Hash::make(Str::random(32)),
+                'email_verified_at' => now(),
+            ]);
+        }
+
+        $token = $user->createToken('mobile_app')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Login dengan Google berhasil',
+            'data' => ['user' => $user, 'token' => $token],
+        ]);
     }
 
     public function me(Request $request)
