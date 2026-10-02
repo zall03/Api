@@ -209,4 +209,34 @@ class AuthController extends Controller
     {
         return response()->json(['success' => true, 'data' => $request->user()]);
     }
+
+    public function updateMe(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:100',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+        $user = $request->user();
+        $user->update(['name' => $request->name]);
+        return response()->json(['success' => true, 'message' => 'Profil berhasil diperbarui', 'data' => $user->fresh()]);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'current_password' => 'required|string',
+            'new_password' => 'required|string|min:8|confirmed',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+        $user = $request->user();
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json(['success' => false, 'message' => 'Kata sandi saat ini salah'], 422);
+        }
+        $user->update(['password' => Hash::make($request->new_password)]);
+        return response()->json(['success' => true, 'message' => 'Kata sandi berhasil diubah']);
+    }
 }

@@ -9,13 +9,20 @@ class IngredientCategorySeeder extends Seeder
 {
     public function run(): void
     {
-        DB::table('ingredient_categories')->insert([
-            ['name' => 'Sayur'],
-            ['name' => 'Protein'],
-            ['name' => 'Karbohidrat'],
-            ['name' => 'Buah'],
-            ['name' => 'Bumbu'],
-            ['name' => 'Dairy'],
-        ]);
+        $categories = [
+            'Sayur',
+            'Protein',
+            'Karbohidrat',
+            'Buah',
+            'Bumbu',
+            'Dairy',
+        ];
+
+        foreach ($categories as $name) {
+            DB::table('ingredient_categories')->updateOrInsert(
+                ['name' => $name],
+                ['name' => $name],
+            );
+        }
     }
 }
